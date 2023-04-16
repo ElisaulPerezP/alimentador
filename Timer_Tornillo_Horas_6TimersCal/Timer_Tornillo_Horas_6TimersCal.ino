@@ -1,11 +1,13 @@
 //Nicolas Jarpa
 //Multiple Timer  RTC3231+LCD+Single Relay+Everyday+eeprom
 
+
 #include <EEPROM.h>
 #include <RTClib.h>
 #include <Wire.h>
 #include <LiquidCrystal_I2C.h>
-LiquidCrystal_I2C lcd(0x27,16,2);//0x3F is my lcd address, maybe not yours!
+
+LiquidCrystal_I2C lcd(0x27,16,2);//0x3F is my lcd address, maybe not yours! (is a example)
 RTC_DS3231 RTC;
 
 unsigned long a=0;
@@ -13,6 +15,7 @@ int b=0;
 int c=0;
 //int t=62;
 //int d=24;
+//TODO: const int #_DE_PULSO_POR_REVOLUCION_1000 = 1000;   // 
 const int drive_distance = 1;   // cm
 const int motor_power = 255;      // 0-255
 const int motor_offset = 0;       // Diff. when driving straight
@@ -203,7 +206,7 @@ void setup() {
   delay(200);   
      Wire.begin();
      RTC.begin();
-     lcd.init();
+     //lcd.init();
      lcd.backlight();
      lcd.clear();
   lcd.createChar(1, back);//Custom chars
@@ -251,7 +254,14 @@ offmin5=EEPROM.read(28);
 offsec5=EEPROM.read(29);
 
 a=EEPROM.read(30);
-counts_per_rev=EEPROM.read(31);
+/////////////////////////////////////////
+char counts_per_rev_lite = 'a';//memoria de paso 8 bits TODO: REFACTORIZAR PARA NO USAR ESTA VARIABLE
+for (int i = 0; i < 4; i++) {
+  counts_per_rev_lite = EEPROM.read(31 + i);
+  counts_per_rev |= (unsigned long)counts_per_rev_lite << (i * 8);
+}
+/////////////////////////////////////////
+//counts_per_rev=EEPROM.read(31);
 
 driveStraight(drive_distance, motor_power);
 
@@ -308,7 +318,7 @@ void driveStraight(float dist, int power) {
 
   // Calculate target number of ticks
   float num_rev = (dist * 1) / wheel_c;  // Convert to mm
-  unsigned long target_count = num_rev * counts_per_rev;
+  unsigned long target_count = num_rev * counts_per_rev;//TODO: Aqui se va a desbordar
   
   // Debug
   Serial.print("Driving for ");
@@ -1699,7 +1709,7 @@ lcd.print(now.second(), DEC); //Print sec
             lcd.print(a);
             lcd.setCursor(7,1);
             if(counts_per_rev<10){
-            lcd.print("7500");
+            lcd.print("7500");//TODO: GESTIONAR ESTE COMPORTAMIENTO, FUENTE DE ERROR
             }
             lcd.print(counts_per_rev);
 //--------------Modifying on/off values-------//
@@ -1751,17 +1761,18 @@ lcd.print(now.second(), DEC); //Print sec
      //Move item + or -
      if (last_up== LOW && current_up == HIGH){  //Up 
       if(counts_per_rev < 14000){
-     counts_per_rev ++;
+     counts_per_rev = counts_per_rev + 500;
       }
       else{
      counts_per_rev =12500;
       }
      }
+     
      last_up=current_up;
      
      if(last_down== LOW && current_down == HIGH){//Down
      if(counts_per_rev >12500){
-      counts_per_rev --; 
+      counts_per_rev = counts_per_rev - 500; 
      }
      else{
       counts_per_rev=14000;
@@ -1835,7 +1846,16 @@ lcd.print(now.second(), DEC); //Print sec
   EEPROM.write(29, offsec5);
 
   EEPROM.write(30, a);
-  EEPROM.write(31, counts_per_rev);
+////////////////////////////////////////////////////////
+
+for (int i = 0; i < 4; i++) {
+  char counts_per_rev_lite = 'a';
+  counts_per_rev_lite = (counts_per_rev >> (i * 8)) & 0xFF;
+  EEPROM.write(31 + i, counts_per_rev_lite);
+}
+////////////////////////////////////////////////////////
+
+  //EEPROM.write(31, counts_per_rev);
     
   lcd.clear();                 //Print message "SAVED!"
   lcd.setCursor(2,1);
