@@ -21,7 +21,7 @@ const int motor_power = 255;      // 0-255
 const int motor_offset = 0;       // Diff. when driving straight
 const int wheel_d = 1;           // Wheel diameter (mm)
 const float wheel_c = wheel_d; // Wheel circumference (mm)
-unsigned long counts_per_rev = 0;   // (4 pairs N-S) * (48:1 gearbox) * (2 falling/rising edges) = 384
+unsigned char counts_per_rev = 0;   // (4 pairs N-S) * (48:1 gearbox) * (2 falling/rising edges) = 384
 boolean flag1 = false;
 boolean flag2 = false;
 boolean flag3 = false;
@@ -254,14 +254,7 @@ offmin5=EEPROM.read(28);
 offsec5=EEPROM.read(29);
 
 a=EEPROM.read(30);
-/////////////////////////////////////////
-char counts_per_rev_lite = 'a';//memoria de paso 8 bits TODO: REFACTORIZAR PARA NO USAR ESTA VARIABLE
-for (int i = 0; i < 4; i++) {
-  counts_per_rev_lite = EEPROM.read(31 + i);
-  counts_per_rev |= (unsigned long)counts_per_rev_lite << (i * 8);
-}
-/////////////////////////////////////////
-//counts_per_rev=EEPROM.read(31);
+counts_per_rev=EEPROM.read(31);
 
 driveStraight(drive_distance, motor_power);
 
@@ -318,7 +311,7 @@ void driveStraight(float dist, int power) {
 
   // Calculate target number of ticks
   float num_rev = (dist * 1) / wheel_c;  // Convert to mm
-  unsigned long target_count = num_rev * counts_per_rev;//TODO: Aqui se va a desbordar
+  unsigned long target_count = num_rev * (counts_per_rev*6+12500);//TODO: Aqui se va a desbordar
   
   // Debug
   Serial.print("Driving for ");
@@ -1711,7 +1704,7 @@ lcd.print(now.second(), DEC); //Print sec
             if(counts_per_rev<10){
             lcd.print("7500");//TODO: GESTIONAR ESTE COMPORTAMIENTO, FUENTE DE ERROR
             }
-            lcd.print(counts_per_rev);
+            lcd.print(counts_per_rev*6+12500);
 //--------------Modifying on/off values-------//
      // Sub counter control
      if (last_sel== LOW && current_sel == HIGH){ //select button pressed
@@ -1760,22 +1753,22 @@ lcd.print(now.second(), DEC); //Print sec
      lcd.write(byte(2));         
      //Move item + or -
      if (last_up== LOW && current_up == HIGH){  //Up 
-      if(counts_per_rev < 14000){
-     counts_per_rev = counts_per_rev + 500;
+      if((counts_per_rev*6+12500) < 14000){
+     counts_per_rev += 1;
       }
       else{
-     counts_per_rev =12500;
+     counts_per_rev =255;
       }
      }
      
      last_up=current_up;
      
      if(last_down== LOW && current_down == HIGH){//Down
-     if(counts_per_rev >12500){
-      counts_per_rev = counts_per_rev - 500; 
+     if(counts_per_rev*6+12500 > 12500){
+      counts_per_rev -= 1;
      }
      else{
-      counts_per_rev=14000;
+      counts_per_rev=0;
      }
      }
      last_down=current_down;
@@ -1846,16 +1839,7 @@ lcd.print(now.second(), DEC); //Print sec
   EEPROM.write(29, offsec5);
 
   EEPROM.write(30, a);
-////////////////////////////////////////////////////////
-
-for (int i = 0; i < 4; i++) {
-  char counts_per_rev_lite = 'a';
-  counts_per_rev_lite = (counts_per_rev >> (i * 8)) & 0xFF;
-  EEPROM.write(31 + i, counts_per_rev_lite);
-}
-////////////////////////////////////////////////////////
-
-  //EEPROM.write(31, counts_per_rev);
+EEPROM.write(31, counts_per_rev);
     
   lcd.clear();                 //Print message "SAVED!"
   lcd.setCursor(2,1);
