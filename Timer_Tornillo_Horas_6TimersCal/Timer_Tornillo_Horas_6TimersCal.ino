@@ -1,11 +1,13 @@
 //Nicolas Jarpa
 //Multiple Timer  RTC3231+LCD+Single Relay+Everyday+eeprom
 
+
 #include <EEPROM.h>
 #include <RTClib.h>
 #include <Wire.h>
 #include <LiquidCrystal_I2C.h>
-LiquidCrystal_I2C lcd(0x27,16,2);//0x3F is my lcd address, maybe not yours!
+
+LiquidCrystal_I2C lcd(0x27,16,2);//0x3F is my lcd address, maybe not yours! (is a example)
 RTC_DS3231 RTC;
 
 unsigned long a=0;
@@ -13,12 +15,13 @@ int b=0;
 int c=0;
 //int t=62;
 //int d=24;
+//TODO: const int #_DE_PULSO_POR_REVOLUCION_1000 = 1000;   // 
 const int drive_distance = 1;   // cm
 const int motor_power = 255;      // 0-255
 const int motor_offset = 0;       // Diff. when driving straight
 const int wheel_d = 1;           // Wheel diameter (mm)
 const float wheel_c = wheel_d; // Wheel circumference (mm)
-unsigned long counts_per_rev = 0;   // (4 pairs N-S) * (48:1 gearbox) * (2 falling/rising edges) = 384
+unsigned char counts_per_rev = 0;   // (4 pairs N-S) * (48:1 gearbox) * (2 falling/rising edges) = 384
 boolean flag1 = false;
 boolean flag2 = false;
 boolean flag3 = false;
@@ -203,7 +206,7 @@ void setup() {
   delay(200);   
      Wire.begin();
      RTC.begin();
-     lcd.init();
+     //lcd.init();
      lcd.backlight();
      lcd.clear();
   lcd.createChar(1, back);//Custom chars
@@ -308,7 +311,7 @@ void driveStraight(float dist, int power) {
 
   // Calculate target number of ticks
   float num_rev = (dist * 1) / wheel_c;  // Convert to mm
-  unsigned long target_count = num_rev * counts_per_rev;
+  unsigned long target_count = num_rev * (counts_per_rev*6+12500);//TODO: Aqui se va a desbordar
   
   // Debug
   Serial.print("Driving for ");
@@ -1699,9 +1702,9 @@ lcd.print(now.second(), DEC); //Print sec
             lcd.print(a);
             lcd.setCursor(7,1);
             if(counts_per_rev<10){
-            lcd.print("7500");
+            lcd.print("7500");//TODO: GESTIONAR ESTE COMPORTAMIENTO, FUENTE DE ERROR
             }
-            lcd.print(counts_per_rev);
+            lcd.print(counts_per_rev*6+12500);
 //--------------Modifying on/off values-------//
      // Sub counter control
      if (last_sel== LOW && current_sel == HIGH){ //select button pressed
@@ -1750,21 +1753,22 @@ lcd.print(now.second(), DEC); //Print sec
      lcd.write(byte(2));         
      //Move item + or -
      if (last_up== LOW && current_up == HIGH){  //Up 
-      if(counts_per_rev < 14000){
-     counts_per_rev ++;
+      if((counts_per_rev*6+12500) < 14000){
+     counts_per_rev += 1;
       }
       else{
-     counts_per_rev =12500;
+     counts_per_rev =255;
       }
      }
+     
      last_up=current_up;
      
      if(last_down== LOW && current_down == HIGH){//Down
-     if(counts_per_rev >12500){
-      counts_per_rev --; 
+     if(counts_per_rev*6+12500 > 12500){
+      counts_per_rev -= 1;
      }
      else{
-      counts_per_rev=14000;
+      counts_per_rev=0;
      }
      }
      last_down=current_down;
@@ -1835,7 +1839,7 @@ lcd.print(now.second(), DEC); //Print sec
   EEPROM.write(29, offsec5);
 
   EEPROM.write(30, a);
-  EEPROM.write(31, counts_per_rev);
+EEPROM.write(31, counts_per_rev);
     
   lcd.clear();                 //Print message "SAVED!"
   lcd.setCursor(2,1);
